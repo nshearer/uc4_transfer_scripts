@@ -1,5 +1,8 @@
 #!/usr/bin/python
 '''Utility script to identify and move or copy job output files'''
+
+VERSION='dev'
+
 import os
 import sys
 import gflags
@@ -367,6 +370,8 @@ if __name__ == '__main__':
 
     print "TRACE:", " ".join(sys.argv)
     print ""
+    print "%s version %s" % (os.path.basename(sys.argv[0]), VERSION)
+
 
     # Parse command line arguments
     try:

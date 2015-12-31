@@ -179,6 +179,8 @@ echo "$PASSWORD" >> except_file causes password to be visible by the ps command
 for a short time.
 
 '''
+VERSION='dev'
+
 import os
 import sys
 import tempfile
@@ -696,6 +698,7 @@ if __name__ == '__main__':
 
         # Parse commandline arguments
         args = ScriptArguments()
+        print "%s version %s" % (os.path.basename(sys.argv[0]), VERSION)
 
         # Init LFTP wrapper
         sftp = LftpClient(args)

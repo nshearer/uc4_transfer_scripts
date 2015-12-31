@@ -48,6 +48,7 @@ Config file format
     [payroll]
     device = DEVICE-NAME
 '''
+VERSION='dev'
 
 import os
 import sys
@@ -456,6 +457,7 @@ if __name__ == '__main__':
 
     # Print
     print ""
+    print "%s version %s" % (os.path.basename(sys.argv[0]), VERSION)
     if not flags.dryrun:
         # Create temp file to print from
         fh = TemporaryFile(mode='w+t')
