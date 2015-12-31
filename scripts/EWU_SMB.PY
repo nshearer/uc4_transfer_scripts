@@ -622,7 +622,10 @@ if __name__ == '__main__':
         # Init smbclient wrapper
         smbclient = SmbClient(args)
 
-        # Ensure
+        # Ensure that we're in the local directory
+        print "Invoked in", os.getcwd()
+        os.chdir(args.local_dir_path)
+        print "Working in", args.local_dir_path
 
         # List files on remote site
         filepat = '*'
