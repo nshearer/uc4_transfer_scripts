@@ -159,7 +159,7 @@ TODO
 
 '''
 
-VERSION='dev'
+VERSION='1.1.0'
 
 import re
 import os

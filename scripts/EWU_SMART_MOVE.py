@@ -1,7 +1,7 @@
 #!/usr/bin/python
 '''Utility script to identify and move or copy job output files'''
 
-VERSION='dev'
+VERSION='1.1.0'
 
 import os
 import sys

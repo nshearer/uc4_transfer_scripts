@@ -179,7 +179,7 @@ echo "$PASSWORD" >> except_file causes password to be visible by the ps command
 for a short time.
 
 '''
-VERSION='dev'
+VERSION='1.1.0'
 
 import os
 import sys
