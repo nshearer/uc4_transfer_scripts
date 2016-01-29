@@ -283,15 +283,35 @@ class CredentialFile(object):
 
     @staticmethod
     def _parse_file(path):
-        parser = ConfigParser.RawConfigParser()
-        parser.read(path)
-        data = dict()
-        for section in parser.sections():
-            group = section.lower() # username@server
-            data[group] = dict()
-            for option in parser.options(section):
-                data[group][option.lower()] = parser.get(section, option)
-        return data
+        # Check file exists
+        if not os.path.exists(path):
+            msg = "Credential file %s doesn't exist" % (path)
+            raise CredentialFileException(msg)
+
+        # Check that credential file is readable
+        try:
+            fh = open(path, 'rt')
+            fh.read()
+        except Exception, e:
+            msg = "Can't read credential file at %s" % (path)
+            raise CredentialFileException(msg)
+
+        # Parse credential file
+        try:
+            parser = ConfigParser.RawConfigParser()
+            parser.read(path)
+            data = dict()
+            for section in parser.sections():
+                group = section.lower() # username@server
+                data[group] = dict()
+                for option in parser.options(section):
+                    data[group][option.lower()] = parser.get(section, option)
+            return data
+        except Exception, e:
+            msg = "Unable to parse credential file %s" % (path)
+            msg += "\nCheck that file is in standard 'ini' format."
+            msg += "\n(file contents hidden to keep secrets)"
+            raise CredentialFileException(msg)
 
     def get_group(self, user, server):
         group_key = ('%s@%s' % (user, server)).lower()
