@@ -55,6 +55,8 @@ Note on wildcards:
 
 For GET_1 mode:
     LPATH: Is the path to save the file to on the local host including filename.
+           Use filename '(remote_filename)' to use the name of file found on the
+           remote server.  Example: /data/(remote_filename)
     RPATH: Is the path to the file on the remote host to copy the file from
            including the filename.  Wildcards may be used if the remote filename
            is not known.
@@ -87,6 +89,8 @@ For PUT_1 mode:
            the filename.  Wildcards may be used if local filename is not known.
     RPATH: Is the full path to the file on the remote host to place the file
            including the filename.
+           Use filename '(local_filename)' to use the name of file found on the
+           local server.  Example: /data/(local_filename)
     MULTI: If the filename pattern in LPATH matches multple files, and this
            value is MULTI_ERROR, then an error code will be returned.  If
            value is MULTI_PCIK_1, then one of the matching files will be chosen
@@ -813,6 +817,9 @@ if __name__ == '__main__':
                 # Determine filename to save file as
                 if args.mode == 'GET_1':
                     target_filename = args.local_filename
+                    # Target filename '(remote_filename)' means keep origional filename
+                    if target_filename == '(remote_filename)':
+                        target_filename = filename
                 elif args.mode == 'GET_M':
                     target_filename = filename
                 print "%s@%s/%s/%s -> %s/%s" % (
@@ -842,6 +849,9 @@ if __name__ == '__main__':
                 # Determine filename to save file as
                 if args.mode == 'PUT_1':
                     target_filename = args.remote_filename
+                    # Target filename '(local_filename)' means keep origional filename
+                    if target_filename == '(local_filename)':
+                        target_filename = filename
                 elif args.mode == 'PUT_M':
                     target_filename = filename
                 print "%s/%s -> %s@%s/%s/%s" % (
