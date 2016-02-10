@@ -13,6 +13,9 @@ import re
 from time import time
 import shutil
 
+YES_NO_OPTS = ('Y', 'N')
+
+
 # File Search Parms
 
 gflags.DEFINE_string(
@@ -25,9 +28,9 @@ gflags.DEFINE_string(
 gflags.DEFINE_enum(
     'recurse',
     short_name  = 'r',
-    default     = 'no',
+    default     = 'N',
     help        = "Search sub directories of search path",
-    enum_values = ['yes', 'no']
+    enum_values = YES_NO_OPTS,
     )
 
 gflags.DEFINE_string(
@@ -43,25 +46,21 @@ gflags.DEFINE_string(
 gflags.DEFINE_enum(
     'match_case',
     short_name  = 'C',
-    default     = 'yes',
+    default     = 'Y',
     help        = "Make filename match case sensitive",
-    enum_values = ['yes', 'no']
+    enum_values = YES_NO_OPTS
     )
 
-gflags.DEFINE_integer(
+gflags.DEFINE_string(
     'min_size',
     default      = None,
     help         = "Minimum size of the file in bytes",
-    lower_bound  = 0,
-    upper_bound  = None
     )
 
-gflags.DEFINE_integer(
+gflags.DEFINE_string(
     'max_size',
     default      = None,
     help         = "Maximum size of the file in bytes",
-    lower_bound  = 0,
-    upper_bound  = None
     )
 
 gflags.DEFINE_string(
@@ -97,12 +96,10 @@ gflags.DEFINE_string(
     help       = "Search for text using regular expression in file"
     )
 
-gflags.DEFINE_integer(
+gflags.DEFINE_string(
     'max_age',
     default      = None,
     help         = "Maximum number of minutes since this file was written to",
-    lower_bound  = 0,
-    upper_bound  = None
     )
 
 
@@ -112,9 +109,9 @@ gflags.DEFINE_integer(
 gflags.DEFINE_enum(
     'verbose',
     short_name  = 'v',
-    default     = 'no',
+    default     = 'N',
     help        = "Explain why files are being rejected or matched",
-    enum_values = ['yes', 'no']
+    enum_values = YES_NO_OPTS
     )
 
 
@@ -137,23 +134,23 @@ gflags.DEFINE_string(
 
 gflags.DEFINE_enum(
     'single_file',
-    default     = 'no',
+    default     = 'N',
     help        = "Will generate an error if more than one file is matched",
-    enum_values = ['yes', 'no']
+    enum_values = YES_NO_OPTS
     )
 
 gflags.DEFINE_enum(
     'overwrite',
-    default     = 'no',
+    default     = 'N',
     help        = "Will generate an error if trying to overwrite an existing file",
-    enum_values = ['yes', 'no']
+    enum_values = YES_NO_OPTS
     )
 
 gflags.DEFINE_enum(
     'must_match',
-    default     = 'no',
+    default     = 'N',
     help        = "Will generate an error if no files are matched",
-    enum_values = ['yes', 'no']
+    enum_values = YES_NO_OPTS
     )
 
 gflags.DEFINE_enum(
@@ -167,15 +164,21 @@ gflags.DEFINE_enum(
 gflags.DEFINE_enum(
     'unix2dos',
     short_name  = 'u',
-    default     = 'no',
+    default     = 'N',
     help        = "Call unix2dos to change line endings to DOS/Windows format",
-    enum_values = ['yes', 'no']
+    enum_values = YES_NO_OPTS
     )
+
+
+def is_yes(value):
+    if value.upper() == 'Y':
+        return True
+    return False
 
 
 
 def debug(msg):
-    if gflags.FLAGS.verbose == 'yes':
+    if is_yes(gflags.FLAGS.verbose):
         print msg
 
 ARG_PARMS=dict()
@@ -224,7 +227,7 @@ def list_files_to_consider(search_path):
     search_path = apply_parms(search_path)
 
     # Return all files
-    if flags.recurse == 'yes':
+    if is_yes(flags.recurse):
         debug("Searching %s (recursivly)" % (search_path))
         for dirpath, dirnames, filenames in os.walk(search_path):
             for filename in filenames:
@@ -243,13 +246,13 @@ def check_match(path):
 
     filename = os.path.basename(path)
     check_filename = apply_parms(filename)
-    if flags.match_case == 'no':
+    if not is_yes(flags.match_case):
         check_filename = check_filename.lower()
 
     # Check filename
     if flags.filename is not None:
         match_filename = apply_parms(flags.filename)
-        if flags.match_case == 'no':
+        if not is_yes(flags.match_case):
             match_filename = match_filename.lower()
         if not fnmatch(check_filename, match_filename):
             debug(path + ": no match: Does not match filename pattern " + match_filename)
@@ -332,7 +335,7 @@ def act_on_file(path):
 
     dst_path = os.path.join(flags.output_dir, dst_filename)
 
-    if flags.overwrite == 'no':
+    if not is_yes(flags.overwrite):
         if os.path.exists(dst_path):
             print "ERROR: Destination file %s already exists" % (dst_path)
             sys.exit(2)
@@ -353,7 +356,7 @@ def act_on_file(path):
         sys.exit(2)
 
     # Handle unix2dos
-    if flags.unix2dos == 'yes':
+    if is_yes(flags.unix2dos):
         print " (+unix2dos)"
         rtncode = subprocess.call(
             ['/usr/bin/unix2dos', dst_path],
@@ -381,6 +384,62 @@ if __name__ == '__main__':
         sys.exit(1)
     flags = gflags.FLAGS
 
+    # Convert flag values to None
+    if len(str(flags.search).strip()) == 0:
+        flags.search = None
+    if len(str(flags.recurse).strip()) == 0:
+        flags.recurse = None
+    if len(str(flags.filename).strip()) == 0:
+        flags.filename = None
+    if len(str(flags.match_case).strip()) == 0:
+        flags.match_case = None
+    if len(str(flags.min_size).strip()) == 0:
+        flags.min_size = None
+    if len(str(flags.max_size).strip()) == 0:
+        flags.max_size = None
+    if len(str(flags.parm_file).strip()) == 0:
+        flags.parm_file = None
+    if len(str(flags.search_in_file).strip()) == 0:
+        flags.search_in_file = None
+    if len(str(flags.search_re_in_file).strip()) == 0:
+        flags.search_re_in_file = None
+    if len(str(flags.max_age).strip()) == 0:
+        flags.max_age = None
+    if len(str(flags.verbose).strip()) == 0:
+        flags.verbose = None
+    if len(str(flags.output_dir).strip()) == 0:
+        flags.output_dir = None
+    if len(str(flags.output_filename).strip()) == 0:
+        flags.output_filename = None
+    if len(str(flags.single_file).strip()) == 0:
+        flags.single_file = None
+    if len(str(flags.overwrite).strip()) == 0:
+        flags.overwrite = None
+    if len(str(flags.must_match).strip()) == 0:
+        flags.must_match = None
+    if len(str(flags.action).strip()) == 0:
+        flags.action = None
+    if len(str(flags.unix2dos).strip()) == 0:
+        flags.unix2dos = None
+
+    # Re-apply defaults (UC4 passes '--flag=' if not value provided)
+    flags.recurse = flags.recurse or 'N'
+    flags.match_case = flags.match_case or 'Y'
+    flags.verbose = flags.verbose or 'N'
+    flags.single_file = flags.single_file or 'N'
+    flags.overwrite = flags.overwrite or 'N'
+    flags.must_match = flags.must_match or 'N'
+    flags.unix2dos = flags.unix2dos or 'N'
+
+    # Convert flags to ints
+    if flags.min_size is not None:
+        flags.min_size = int(flags.min_size)
+    if flags.max_size is not None:
+        flags.max_size = int(flags.max_size)
+    if flags.max_age is not None:
+        flags.max_age = int(flags.max_age)
+
+    # Load replacement patterns
     load_parms()
 
     # Determine search path
@@ -405,13 +464,13 @@ if __name__ == '__main__':
             matched.append(candidate)
 
     # Check matches
-    if flags.single_file == 'yes' and len(matched) > 1:
+    if is_yes(flags.single_file) and len(matched) > 1:
         print "ERROR: Multiple files matched:"
         for path in matched:
             print " - " + path
         sys.exit(2)
 
-    if flags.must_match == 'yes' and len(matched) < 1:
+    if is_yes(flags.must_match) and len(matched) < 1:
         print "ERROR: No files found"
         sys.exit(2)
 
@@ -420,5 +479,8 @@ if __name__ == '__main__':
         act_on_file(path)
 
     print ""
-    print "Acted on %d file(s)" % (len(matched))
+    if len(matched) == 1:
+        print "Acted on 1 file"
+    else:    
+        print "Acted on %d files" % (len(matched))
 
