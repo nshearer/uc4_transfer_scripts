@@ -716,6 +716,8 @@ def add_host_key(hostname, key):
 #  -----------------------------------------------------------------------------
 
 
+KEEP_FILENAME_TOKENS=('(remote_filename)', '(local_filename)', '(keep)')
+
 if __name__ == '__main__':
 
     try:
@@ -761,7 +763,7 @@ if __name__ == '__main__':
 
         # List files on remote site
         filepat = '*'
-        if args.remote_filename is not None:
+        if args.remote_filename is not None and args.remote_filename not in KEEP_FILENAME_TOKENS:
             filepat = args.remote_filename
         msg = "Listing %s files in %s:%s"
         new_section(msg % (filepat, args.rhost, args.remote_dir_path))
@@ -818,7 +820,7 @@ if __name__ == '__main__':
                 if args.mode == 'GET_1':
                     target_filename = args.local_filename
                     # Target filename '(remote_filename)' means keep origional filename
-                    if target_filename == '(remote_filename)':
+                    if target_filename in KEEP_FILENAME_TOKENS:
                         target_filename = filename
                 elif args.mode == 'GET_M':
                     target_filename = filename
@@ -850,7 +852,7 @@ if __name__ == '__main__':
                 if args.mode == 'PUT_1':
                     target_filename = args.remote_filename
                     # Target filename '(local_filename)' means keep origional filename
-                    if target_filename == '(local_filename)':
+                    if target_filename in KEEP_FILENAME_TOKENS:
                         target_filename = filename
                 elif args.mode == 'PUT_M':
                     target_filename = filename
