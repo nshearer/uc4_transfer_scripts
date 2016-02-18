@@ -617,6 +617,8 @@ class SmbClient(object):
 
 if __name__ == '__main__':
 
+    print "Running %s - Version %s" % (sys.argv[0], VERSION)
+
     try:
 
         # Parse commandline arguments
@@ -626,7 +628,6 @@ if __name__ == '__main__':
         smbclient = SmbClient(args)
 
         # Ensure that we're in the local directory
-        print "%s version %s" % (os.path.basename(sys.argv[0]), VERSION)
         print "Invoked in", os.getcwd()
         os.chdir(args.local_dir_path)
         print "Working in", args.local_dir_path
