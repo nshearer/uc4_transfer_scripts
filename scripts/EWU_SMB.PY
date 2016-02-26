@@ -68,7 +68,7 @@ For GET_1 mode:
            MULTI=MULTI_ERROR, then the script will error without copying any
            files.  Otherwise, one file will be chosen randomly to be copied.
            MULTI_OK value not allowed in this mode.
-    DEL:   If DEL, then the file copied on the remote SFTP server will be
+    DEL:   If DEL, then the file copied on the remote server will be
            deleted if the transfer succeeds.
     LIMIT: Must be ALL for this mode
     REQ:   Must be REQUIRED for this mode
@@ -109,7 +109,7 @@ For PUT_1 mode:
 For PUT_M mode:
     LPATH: Is the path to the files on the local host to push up including a
            filename pattern with wildcards.
-    RPATH: Is the path to the directory on the remote SFTP server to copy files
+    RPATH: Is the path to the directory on the remote server to copy files
            to.
     MULTI: Must be MULTI_OK for this mode
     DEL:   If DEL, then each file successfully copied will be deleted from the
@@ -120,6 +120,7 @@ For PUT_M mode:
     REQ:   If REQUIRED and no files are found to transfer, then an error will
            be returned
     CONV:  Run unix2dos
+
 
 
 Credentials File
