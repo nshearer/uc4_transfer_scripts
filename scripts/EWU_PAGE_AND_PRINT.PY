@@ -118,24 +118,29 @@ gflags.DEFINE_enum(
     enum_values = [str(i) for i in STANDARD_FONT_SIZES]
     )
 
-gflags.DEFINE_bool(
+YES_NO_OPTS = ('Y', 'N')
+
+gflags.DEFINE_enum(
     'footer',
-    default    = True,
-    help       = "Create footer at the bottom of the page"
+    default     = 'Y',
+    help        = "Create footer at the bottom of the page",
+    enum_values = YES_NO_OPTS,
     )
 
-gflags.DEFINE_bool(
+gflags.DEFINE_enum(
     'filename',
     short_name = 'F',
-    default    = False,
-    help       = "Include filename in footer"
+    default    = 'N',
+    help       = "Include filename in footer",
+    enum_values = YES_NO_OPTS,
     )
 
-gflags.DEFINE_bool(
+gflags.DEFINE_enum(
     'page_num',
     short_name = 'P',
-    default    = False,
-    help       = "Include page x of y in the footer"
+    default    = 'N',
+    help       = "Include page x of y in the footer",
+    enum_values = YES_NO_OPTS,
     )
 
 gflags.DEFINE_string(
@@ -145,11 +150,12 @@ gflags.DEFINE_string(
     help       = "Include title to print in footer (probably instead of filename)"
     )
 
-gflags.DEFINE_bool(
+gflags.DEFINE_enum(
     'ctime',
     short_name = 'C',
-    default    = False,
-    help       = "Include file creation time in the footer"
+    default    = 'N',
+    help       = "Include file creation time in the footer",
+    enum_values = YES_NO_OPTS,
     )
 
 # gflags.DEFINE_integer(
@@ -321,6 +327,11 @@ gflags.DEFINE_bool(
     help       = "Don't print.  Useful with -v to debug"
     )
 
+def is_yes_no(value):
+    if value.upper() == 'Y':
+        return True
+    return False
+
 
 # -- Main ---------------------------------------------------------------------
 
@@ -336,6 +347,14 @@ if __name__ == '__main__':
         print 'USAGE ERROR: %s\nUsage: %s ARGS\n%s' % (e, sys.argv[0], gflags.FLAGS)
         sys.exit(1)
     flags = gflags.FLAGS
+
+    # Re-apply default parameter values.  UC4 passes "--font=" if no parm value supplied
+    flags.font = flags.font or 'Courier'
+    flags.orientation = flags.orientation or 'landscape'
+    flags.footer = flags.footer or 'Y'
+    flags.filename = flags.filename or 'N'
+    flags.page_num = flags.page_num or 'N'
+    flags.ctime = flags.ctime or 'N'
 
     # Calc font name
     font_name = flags.font
@@ -382,17 +401,17 @@ if __name__ == '__main__':
     page_spec = printer.get_page_config(orientation, font_name, fontsize)
 
     # Calc Footer format 
-    has_footer = flags.footer
+    has_footer = is_yes_no(flags.footer)
     footer_fmt = None
     if has_footer:
         footer_fmt = list()
-        if flags.ctime:
+        if is_yes_no(flags.ctime):
             footer_fmt.append('{ctime}')
         if flags.title is not None:
             footer_fmt.append('{title}')
-        if flags.filename:
+        if is_yes_no(flags.filename):
             footer_fmt.append('{filename}')
-        if flags.page_num:
+        if is_yes_no(flags.page_num):
             footer_fmt.append('Page {page_num} of {page_count}')
         footer_fmt = ' - '.join(footer_fmt)
     debug_var('has footer', has_footer)
@@ -445,7 +464,7 @@ if __name__ == '__main__':
     cmd = [
         '/usr/bin/enscript',
         '-P', printer.device,
-        '-f', '%s%d' % (font_name, fontsize),
+        '-f', '%s%d' % (font_name, int(fontsize)),
         '-B'
     ]
     if orientation == 'landscape':
@@ -466,6 +485,7 @@ if __name__ == '__main__':
 
         # Print temp file
         print "printing %s to %s" % (flags.path, printer.device)
+        print "$> " + " ".join(cmd)
         rtncode = subprocess.call(cmd,
             stdin=fh,
             stdout=sys.stdout,

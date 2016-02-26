@@ -529,9 +529,11 @@ class SmbClient(object):
             # cd to server directory
             cmd = "cd %s; " % (args.remote_dir_path) + cmd
 
+            # Open file to capture output
+            stdout_path = tempfile.mkstemp(prefix=prefix)[1]
+            stdout_fh = open(stdout_path, 'r+')
+
             # Run smbclient
-            if write_output is None:
-                write_output = sys.stdout
             cmd = [self.PATH,
                 r'\\%s\%s' % (args.rhost, args.remote_share_name),
                 '-A', cred_path,
@@ -539,8 +541,30 @@ class SmbClient(object):
             print "$>", " ".join(cmd)
             rtn_code = subprocess.call(
                 args=cmd,
-                stdout=write_output,
-                stderr=write_output)
+                stdout=stdout_fh,
+                stderr=stdout_fh)
+
+            # Get the command output
+            stdout_fh.seek(0)
+            stdout = stdout_fh.read()
+
+            # Clean up output capture files
+            stdout_fh.close()
+            if os.path.exists(stdout_path):
+                os.unlink(stdout_path)
+
+            # Print output to stdout
+            if len(stdout) > 0:
+                print 'Command Output:'
+                for line in stdout.split("\n"):
+                    print "    " + line.rstrip()            
+
+            # Replicate output to write_output
+            if write_output is not None:
+                if len(stdout) > 0:
+                    write_output.write(stdout)
+
+            # Handle return code
             if rtn_code != 0:
                 raise SmbClientError("smbclient returned code " + str(rtn_code))
 
@@ -617,6 +641,8 @@ class SmbClient(object):
 
 if __name__ == '__main__':
 
+    print "Running %s - Version %s" % (sys.argv[0], VERSION)
+
     try:
 
         # Parse commandline arguments
@@ -626,7 +652,6 @@ if __name__ == '__main__':
         smbclient = SmbClient(args)
 
         # Ensure that we're in the local directory
-        print "%s version %s" % (os.path.basename(sys.argv[0]), VERSION)
         print "Invoked in", os.getcwd()
         os.chdir(args.local_dir_path)
         print "Working in", args.local_dir_path

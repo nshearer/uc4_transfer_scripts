@@ -55,6 +55,8 @@ Note on wildcards:
 
 For GET_1 mode:
     LPATH: Is the path to save the file to on the local host including filename.
+           Use filename '(remote_filename)' to use the name of file found on the
+           remote server.  Example: /data/(remote_filename)
     RPATH: Is the path to the file on the remote host to copy the file from
            including the filename.  Wildcards may be used if the remote filename
            is not known.
@@ -87,6 +89,8 @@ For PUT_1 mode:
            the filename.  Wildcards may be used if local filename is not known.
     RPATH: Is the full path to the file on the remote host to place the file
            including the filename.
+           Use filename '(local_filename)' to use the name of file found on the
+           local server.  Example: /data/(local_filename)
     MULTI: If the filename pattern in LPATH matches multple files, and this
            value is MULTI_ERROR, then an error code will be returned.  If
            value is MULTI_PCIK_1, then one of the matching files will be chosen
@@ -189,6 +193,7 @@ import shutil
 import ConfigParser
 import random
 from glob import glob
+import re
 
 def abort(msg):
     print "ERROR:", msg
@@ -283,15 +288,35 @@ class CredentialFile(object):
 
     @staticmethod
     def _parse_file(path):
-        parser = ConfigParser.RawConfigParser()
-        parser.read(path)
-        data = dict()
-        for section in parser.sections():
-            group = section.lower() # username@server
-            data[group] = dict()
-            for option in parser.options(section):
-                data[group][option.lower()] = parser.get(section, option)
-        return data
+        # Check file exists
+        if not os.path.exists(path):
+            msg = "Credential file %s doesn't exist" % (path)
+            raise CredentialFileException(msg)
+
+        # Check that credential file is readable
+        try:
+            fh = open(path, 'rt')
+            fh.read()
+        except Exception, e:
+            msg = "Can't read credential file at %s" % (path)
+            raise CredentialFileException(msg)
+
+        # Parse credential file
+        try:
+            parser = ConfigParser.RawConfigParser()
+            parser.read(path)
+            data = dict()
+            for section in parser.sections():
+                group = section.lower() # username@server
+                data[group] = dict()
+                for option in parser.options(section):
+                    data[group][option.lower()] = parser.get(section, option)
+            return data
+        except Exception, e:
+            msg = "Unable to parse credential file %s" % (path)
+            msg += "\nCheck that file is in standard 'ini' format."
+            msg += "\n(file contents hidden to keep secrets)"
+            raise CredentialFileException(msg)
 
     def get_group(self, user, server):
         group_key = ('%s@%s' % (user, server)).lower()
@@ -498,6 +523,22 @@ class ScriptArguments(object):
 #    #####  #          #    #
 #  -----------------------------------------------------------------------------
 
+CACHED_GLOB_PATS=dict()
+def check_filename_matches_pat(self, path, pat):
+    global CACHED_GLOB_PATS
+    
+    if not CACHED_GLOB_PATS.has_key(pat):
+        re_pat = pat.replace("*", r'[^/]*')
+        re_pat = pat.replace("?", r'[^/]')
+        CACHED_GLOB_PATS[pat] = re.compile('^' + re_pat + '$')
+
+    re_pat = CACHED_GLOB_PATS[pat]
+
+    if re_pat.match(path):
+        return True
+    return False
+
+
 class SftpError(Exception): pass
 
 class LftpClient(object):
@@ -512,6 +553,7 @@ class LftpClient(object):
         if not os.path.exists(self.PATH):
             msg = "%s does not exists.  lftp not installed?"
             raise Exception(msg % (self.PATH))
+
 
     def execute(self, cmds):
         '''Execute lftp with the given commands'''
@@ -550,12 +592,12 @@ class LftpClient(object):
                 print >>fh, 'set xfer:clobber true'
 
             # Change to remote working directory
-            if args.remote_dir_path != '.':
+            if args.remote_dir_path != '.' and args.remote_dir_path != '':
                 print >>fh, 'cd "%s"' % (args.remote_dir_path)
 
             # Change to local working directory
             if args.local_dir_path is not None:
-                if args.local_dir_path != '.':
+                if args.local_dir_path != '.' and args.local_dir_path != '.':
                     print >>fh, 'lcd "%s"' % (args.local_dir_path)
 
             # Execute commands
@@ -565,19 +607,47 @@ class LftpClient(object):
             fh.close()
 
             # DEBUG Script file
-            # print "--- Script file ---"
-            # fh = open(script_path, 'rt')
-            # print fh.read().strip()
-            # fh.close()
-            # print "-------------------"
+            #print "--- Script file ---"
+            #fh = open(script_path, 'rt')
+            #print fh.read().strip()
+            #fh.close()
+            #print "-------------------"
+
+            # Create temp files to hold stdout
+            stdout_fh = tempfile.TemporaryFile(mode='r+')
+            stderr_fh = tempfile.TemporaryFile(mode='r+')
 
             # Run lftp
             rtn_code = subprocess.call(
                 args=[self.PATH, '-f', script_path],
-                stdout=sys.stdout,
-                stderr=sys.stdout)
+                stdout=stdout_fh,
+                stderr=stderr_fh)
+
+            # Collect output
+            stdout_fh.seek(0)
+            stdout_txt = stdout_fh.read()
+            stdout_fh.close()
+
+            stderr_fh.seek(0)
+            stderr_txt = stderr_fh.read()
+            stderr_fh.close()
+
             if rtn_code != 0:
-                raise SftpError("lftp returned code " + str(rtn_code))
+                msg = "lftp returned code " + str(rtn_code)
+                
+                msg += "\n--- stdout ---\n"
+                msg += stdout_txt
+
+                msg += "\n--- stderr ---\n"
+                msg += stderr_txt
+
+                msg += "\n--- end of output ---\n"
+
+                raise SftpError(msg)
+
+            else:
+                print stdout_txt
+                print stderr_txt
 
         finally:
             # Clean up script
@@ -595,7 +665,14 @@ class LftpClient(object):
             cmd = [
                 'cls -1 "%s" > %s' % (filepat, list_file)
                 ]
-            self.execute(cmd)
+            try:
+                self.execute(cmd)
+            except SftpError, e:
+                # lftp returns "Access failed" if doing ls specific file name that doesn't exist
+                if "Access failed" in str(e):
+                    return list()
+                else:
+                    raise e
 
             # Read files listed
             fh = open(list_file, 'rt')
@@ -692,6 +769,8 @@ def add_host_key(hostname, key):
 #  -----------------------------------------------------------------------------
 
 
+KEEP_FILENAME_TOKENS=('(remote_filename)', '(local_filename)', '(keep)')
+
 if __name__ == '__main__':
 
     try:
@@ -737,7 +816,7 @@ if __name__ == '__main__':
 
         # List files on remote site
         filepat = '*'
-        if args.remote_filename is not None:
+        if args.remote_filename is not None and args.remote_filename not in KEEP_FILENAME_TOKENS:
             filepat = args.remote_filename
         msg = "Listing %s files in %s:%s"
         new_section(msg % (filepat, args.rhost, args.remote_dir_path))
@@ -793,6 +872,9 @@ if __name__ == '__main__':
                 # Determine filename to save file as
                 if args.mode == 'GET_1':
                     target_filename = args.local_filename
+                    # Target filename '(remote_filename)' means keep origional filename
+                    if target_filename in KEEP_FILENAME_TOKENS:
+                        target_filename = filename
                 elif args.mode == 'GET_M':
                     target_filename = filename
                 print "%s@%s/%s/%s -> %s/%s" % (
@@ -808,7 +890,7 @@ if __name__ == '__main__':
 
                 # Perform transfer
                 cmds = list()
-                cmds.append('get "%s" "%s"' % (filename, target_filename))
+                cmds.append('get1 "%s" "%s"' % (filename, target_filename))
                 if args.do_del == 'DEL':
                     cmds.append('rm "%s"' % (filename))
                 sftp.execute(cmds)
@@ -822,6 +904,9 @@ if __name__ == '__main__':
                 # Determine filename to save file as
                 if args.mode == 'PUT_1':
                     target_filename = args.remote_filename
+                    # Target filename '(local_filename)' means keep origional filename
+                    if target_filename in KEEP_FILENAME_TOKENS:
+                        target_filename = filename
                 elif args.mode == 'PUT_M':
                     target_filename = filename
                 print "%s/%s -> %s@%s/%s/%s" % (
@@ -837,7 +922,7 @@ if __name__ == '__main__':
 
                 # Perform transfer
                 cmds = list()
-                cmds.append('put "%s" "%s"' % (filename, target_filename))
+                cmds.append('put "%s" -o "%s"' % (filename, target_filename))
                 sftp.execute(cmds)
                 if args.do_del == 'DEL':
                     path = os.path.join(args.local_dir_path, filename)
