@@ -48,7 +48,7 @@ Config file format
     [payroll]
     device = DEVICE-NAME
 '''
-VERSION='1.1.0'
+VERSION='1.2.0'
 
 import os
 import sys

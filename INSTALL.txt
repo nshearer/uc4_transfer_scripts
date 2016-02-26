@@ -1,0 +1,10 @@
+Install Instructions
+====================
+
+I. Copy Scripts to appworx directory
+------------------------------------
+
+  - EWU_PAGE_AND_PRINT.PY
+  - EWU_SFTP_2.PY
+  - EWU_SMART_MOVE.py
+  - EWU_SMB.PY
